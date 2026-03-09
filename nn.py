@@ -48,24 +48,24 @@ def reset(layers):
 
 def predict(layers, a):
     for layer in layers:
-        a = layer.forward(a)
+        a = layer.predict(a)
     return a
 
 
-def forward(layers, a, cache):
+def forward(layers, a, cache, momentum):
     for layer in layers:
-        a = layer.forward(a)
+        a = layer.forward(a, momentum)
         cache.append(a)
     return a
 
 
-def backward(layers, da, cache, lr):
+def backward(layers, da, cache, lr, momentum):
     for layer in reversed(layers):
-        da = layer.backward(da, *cache[-2:], lr)
+        da = layer.backward(da, *cache[-2:], lr, momentum)
         cache.pop()
 
 
-def fit(layers, x, y, epochs, batch_size, lr):
+def fit(layers, x, y, epochs, batch_size, lr, momentum):
     a = np.zeros_like(y)
     m = a.shape[1]
 
@@ -75,8 +75,8 @@ def fit(layers, x, y, epochs, batch_size, lr):
             xi = x[:, i]
             yi = y[:, i]
             cache = [xi]
-            ai = a[:, i] = forward(layers, xi, cache)
-            backward(layers, loss_grad(ai, yi), cache, lr)
+            ai = a[:, i] = forward(layers, xi, cache, momentum)
+            backward(layers, loss_grad(ai, yi), cache, lr, momentum)
         yield a
 
         l = loss(a, y)
@@ -100,27 +100,37 @@ class Dense:
     def reset(self):
         self.w = np.sqrt(1/self.din) * np.random.randn(self.dout, self.din)
         self.b = np.sqrt(1/self.din) * np.random.randn(self.dout, 1)
-        self.m = 0
-        self.v = 0
+        self.vw = 0
+        self.vb = 0
 
 
-    def forward(self, a):
+    def predict(self, a):
         z = self.w @ a + self.b
         a = self.g(z)
         return a
 
 
-    def backward(self, da, a_prev, a, lr):
+    def forward(self, a, momentum):
+        # lookahead
+        self.w -= momentum * self.vw
+        self.b -= momentum * self.vb
+        return self.predict(a)
+
+
+    def backward(self, da, a_prev, a, lr, momentum):
         dz = da * self.g_grad(a)
         da = self.w.T @ dz
 
         dw = dz @ a_prev.T
         db = np.sum(dz, axis=1, keepdims=True)
 
-        self.m = 0.9 * self.m + (1. - 0.9) * dw
-        self.v = 0.999 * self.v + (1. - 0.999) * dw ** 2
+        # undo lookahead
+        self.w += momentum * self.vw
+        self.b += momentum * self.vb
 
-        self.w -= lr * self.m / (np.sqrt(self.v) + 1e-8)
-        self.b -= lr * db
+        self.vw = momentum * self.vw + lr * dw
+        self.vb = momentum * self.vb + lr * db
 
+        self.w -= self.vw
+        self.b -= self.vb
         return da

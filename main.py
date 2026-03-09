@@ -5,8 +5,9 @@ import nn
 
 num = 4_000
 batch_size = 40
-epochs = 2_000
-learning_rate = 0.0001
+epochs = 1_000
+lr = 0.01
+momentum = 0.9
 
 
 def get_data():
@@ -32,7 +33,7 @@ def frames():
     nn.reset(layers)
 
     x, y = get_data()
-    it = nn.fit(layers, x, y, epochs, batch_size, learning_rate)
+    it = nn.fit(layers, x, y, epochs, batch_size, lr, momentum)
 
     yield from (Y for _ in zip(inc(X, x), inc(Y, next(it))))
     yield from it
@@ -67,7 +68,6 @@ ax2.axis('off')
 plt.tight_layout()
 
 layers = [ nn.Dense(2, 64)
-         , nn.Dense(64, 64)
          , nn.Dense(64, 64)
          , nn.Dense(64, 1, activation='linear')
          ]
