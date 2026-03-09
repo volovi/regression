@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import nn
 
-num = 4_000
-batch_size = 40
+num = 2_000
+batch_size = 20
 epochs = 1_000
 lr = 0.01
 momentum = 0.9
@@ -21,7 +21,7 @@ def get_paraboloid_data(r):
     return X, Y, X**2 + Y**2
 
 
-def inc(obj, stop, n=100):
+def inc(obj, stop, n=20):
     step = (stop - obj) / n
 
     for i in range(n):
@@ -54,7 +54,7 @@ def init_func():
     return surf, scat
 
 
-fig = plt.figure(figsize=(16, 8))
+fig = plt.figure(figsize=(10, 5))
 ax = fig.add_subplot(121, projection='3d', xlim=(-4, 4), ylim=(-4, 4))
 ax2 = fig.add_subplot(122, xlim=(-4, 4), ylim=(-4, 4))
 X, Y = get_data()
@@ -72,5 +72,5 @@ layers = [ nn.Dense(2, 64)
          , nn.Dense(64, 1, activation='linear')
          ]
 
-ani = animation.FuncAnimation(fig, func, frames, init_func, cache_frame_data=False, interval=10, blit=True)
+ani = animation.FuncAnimation(fig, func, frames, init_func, cache_frame_data=False, interval=50, blit=True)
 plt.show()
