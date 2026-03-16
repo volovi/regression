@@ -41,9 +41,15 @@ def loss_grad(a, y):
     return (a - y) / a.shape[1]
 
 
-def reset(layers):
+def reset(layers, optimizer):
     for layer in layers:
         layer.reset()
+
+    optimizer.reset()
+
+
+def parameters(layers):
+    return [p for layer in layers for p in layer.parameters()]
 
 
 def predict(layers, a):
@@ -59,13 +65,13 @@ def forward(layers, a, cache):
     return a
 
 
-def backward(layers, da, cache, lr, momentum, nesterov):
+def backward(layers, da, cache):
     for layer in reversed(layers):
-        da = layer.backward(da, *cache[-2:], lr, momentum, nesterov)
+        da = layer.backward(da, *cache[-2:])
         cache.pop()
 
 
-def fit(layers, x, y, epochs, batch_size, lr=0.01, momentum=0.9, nesterov=False):
+def fit(layers, x, y, epochs, batch_size, optimizer):
     a = np.zeros_like(y)
     m = a.shape[1]
 
@@ -76,7 +82,8 @@ def fit(layers, x, y, epochs, batch_size, lr=0.01, momentum=0.9, nesterov=False)
             yi = y[:, i]
             cache = [xi]
             ai = a[:, i] = forward(layers, xi, cache)
-            backward(layers, loss_grad(ai, yi), cache, lr, momentum, nesterov)
+            backward(layers, loss_grad(ai, yi), cache)
+            optimizer.step()
         yield a
 
         l = loss(a, y)
@@ -87,9 +94,9 @@ def fit(layers, x, y, epochs, batch_size, lr=0.01, momentum=0.9, nesterov=False)
 
 
 class Dense:
-    def __init__(self, din, dout, activation='tanh'):
-        self.din = din
-        self.dout = dout
+    def __init__(self, in_features, out_features, activation='tanh'):
+        self.w, self.dw = self.p1 = np.zeros((2, out_features, in_features))
+        self.b, self.db = self.p2 = np.zeros((2, out_features, 1))
 
         self.g = globals()[activation]
         self.g_grad = globals()[activation+'_grad']
@@ -98,10 +105,9 @@ class Dense:
 
 
     def reset(self):
-        self.w = np.sqrt(1/self.din) * np.random.randn(self.dout, self.din)
-        self.b = np.sqrt(1/self.din) * np.random.randn(self.dout, 1)
-        self.vw = 0
-        self.vb = 0
+        for p in self.parameters():
+            p[0] = np.random.standard_normal(p[0].shape) * np.sqrt(1./p[0].shape[1])
+            p[1] = 0
 
 
     def forward(self, a):
@@ -110,23 +116,35 @@ class Dense:
         return a
 
 
-    def backward(self, da, a_prev, a, lr, momentum, nesterov):
+    def backward(self, da, a_prev, a):
         dz = da * self.g_grad(a)
         da = self.w.T @ dz
 
-        dw = dz @ a_prev.T
-        db = np.sum(dz, axis=1, keepdims=True)
-
-        vw_new = momentum * self.vw + lr * dw
-        vb_new = momentum * self.vb + lr * db
-
-        if nesterov:
-            self.w -= -momentum * self.vw + (1 + momentum) * vw_new
-            self.b -= -momentum * self.vb + (1 + momentum) * vb_new
-        else:
-            self.w -= vw_new
-            self.b -= vb_new
-
-        self.vw = vw_new
-        self.vb = vb_new
+        self.dw[:] = dz @ a_prev.T
+        self.db[:] = np.sum(dz, axis=1, keepdims=True)
         return da
+
+
+    def parameters(self):
+        return [self.p1, self.p2]
+
+
+class SGD:
+    def __init__(self, parameters, lr=0.01, momentum=0.9, nesterov=False):
+        self.parameters = parameters
+        self.lr = lr
+        self.momentum = momentum
+        self.nesterov = nesterov
+
+        self.reset()
+
+
+    def step(self):
+        for i, (p, g) in enumerate(self.parameters):
+            v_new = self.momentum * self.v[i] + self.lr * g
+            p -= -self.momentum * self.v[i] + (1 + self.momentum) * v_new if self.nesterov else v_new
+            self.v[i] = v_new
+
+
+    def reset(self):
+        self.v = [np.zeros_like(p[0]) for p in self.parameters]

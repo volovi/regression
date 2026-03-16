@@ -31,10 +31,10 @@ def inc(obj, stop, n=20):
 
 
 def frames():
-    nn.reset(layers)
+    nn.reset(layers, opt)
 
     x, y = get_data()
-    it = nn.fit(layers, x, y, epochs, batch_size, lr, momentum, nesterov)
+    it = nn.fit(layers, x, y, epochs, batch_size, opt)
 
     yield from (Y for _ in zip(inc(X, x), inc(Y, next(it))))
     yield from it
@@ -72,6 +72,8 @@ layers = [ nn.Dense(2, 64)
          , nn.Dense(64, 64)
          , nn.Dense(64, 1, activation='linear')
          ]
+
+opt = nn.SGD(nn.parameters(layers), lr, momentum, nesterov)
 
 ani = animation.FuncAnimation(fig, func, frames, init_func, cache_frame_data=False, interval=50, blit=True)
 plt.show()
