@@ -48,24 +48,24 @@ def reset(layers):
 
 def predict(layers, a):
     for layer in layers:
-        a = layer.predict(a)
+        a = layer.forward(a)
     return a
 
 
-def forward(layers, a, cache, momentum):
+def forward(layers, a, cache):
     for layer in layers:
-        a = layer.forward(a, momentum)
+        a = layer.forward(a)
         cache.append(a)
     return a
 
 
-def backward(layers, da, cache, lr, momentum):
+def backward(layers, da, cache, lr, momentum, nesterov):
     for layer in reversed(layers):
-        da = layer.backward(da, *cache[-2:], lr, momentum)
+        da = layer.backward(da, *cache[-2:], lr, momentum, nesterov)
         cache.pop()
 
 
-def fit(layers, x, y, epochs, batch_size, lr, momentum):
+def fit(layers, x, y, epochs, batch_size, lr=0.01, momentum=0.9, nesterov=False):
     a = np.zeros_like(y)
     m = a.shape[1]
 
@@ -75,8 +75,8 @@ def fit(layers, x, y, epochs, batch_size, lr, momentum):
             xi = x[:, i]
             yi = y[:, i]
             cache = [xi]
-            ai = a[:, i] = forward(layers, xi, cache, momentum)
-            backward(layers, loss_grad(ai, yi), cache, lr, momentum)
+            ai = a[:, i] = forward(layers, xi, cache)
+            backward(layers, loss_grad(ai, yi), cache, lr, momentum, nesterov)
         yield a
 
         l = loss(a, y)
@@ -104,33 +104,29 @@ class Dense:
         self.vb = 0
 
 
-    def predict(self, a):
+    def forward(self, a):
         z = self.w @ a + self.b
         a = self.g(z)
         return a
 
 
-    def forward(self, a, momentum):
-        # lookahead
-        self.w -= momentum * self.vw
-        self.b -= momentum * self.vb
-        return self.predict(a)
-
-
-    def backward(self, da, a_prev, a, lr, momentum):
+    def backward(self, da, a_prev, a, lr, momentum, nesterov):
         dz = da * self.g_grad(a)
         da = self.w.T @ dz
 
         dw = dz @ a_prev.T
         db = np.sum(dz, axis=1, keepdims=True)
 
-        # undo lookahead
-        self.w += momentum * self.vw
-        self.b += momentum * self.vb
+        vw_new = momentum * self.vw + lr * dw
+        vb_new = momentum * self.vb + lr * db
 
-        self.vw = momentum * self.vw + lr * dw
-        self.vb = momentum * self.vb + lr * db
+        if nesterov:
+            self.w -= -momentum * self.vw + (1 + momentum) * vw_new
+            self.b -= -momentum * self.vb + (1 + momentum) * vb_new
+        else:
+            self.w -= vw_new
+            self.b -= vb_new
 
-        self.w -= self.vw
-        self.b -= self.vb
+        self.vw = vw_new
+        self.vb = vb_new
         return da

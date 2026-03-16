@@ -8,6 +8,7 @@ batch_size = 20
 epochs = 1_000
 lr = 0.01
 momentum = 0.9
+nesterov = True
 
 
 def get_data():
@@ -33,7 +34,7 @@ def frames():
     nn.reset(layers)
 
     x, y = get_data()
-    it = nn.fit(layers, x, y, epochs, batch_size, lr, momentum)
+    it = nn.fit(layers, x, y, epochs, batch_size, lr, momentum, nesterov)
 
     yield from (Y for _ in zip(inc(X, x), inc(Y, next(it))))
     yield from it
