@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import nn
 
-num = 2_000
-batch_size = 20
-epochs = 1_000
 lr = 0.01
+num = 4_000
+epochs = 1_000
+batch_size = 20
+accu_steps = 2
 momentum = 0.9
 nesterov = True
 
@@ -34,7 +35,7 @@ def frames():
     nn.reset(layers, opt)
 
     x, y = get_data()
-    it = nn.fit(layers, x, y, epochs, batch_size, opt)
+    it = nn.fit(layers, opt, x, y, epochs, batch_size, accu_steps)
 
     yield from (Y for _ in zip(inc(X, x), inc(Y, next(it))))
     yield from it

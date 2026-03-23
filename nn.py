@@ -71,19 +71,21 @@ def backward(layers, da, cache):
         cache.pop()
 
 
-def fit(layers, x, y, epochs, batch_size, optimizer):
+def fit(layers, optimizer, x, y, epochs, batch_size, accu_steps):
     a = np.zeros_like(y)
     m = a.shape[1]
 
     for epoch in range(epochs):
-        for j in range(0, m, batch_size):
+        for step, j in enumerate(range(0, m, batch_size), 1):
             i = slice(j, j + batch_size)
             xi = x[:, i]
             yi = y[:, i]
             cache = [xi]
             ai = a[:, i] = forward(layers, xi, cache)
-            backward(layers, loss_grad(ai, yi), cache)
-            optimizer.step()
+            backward(layers, loss_grad(ai, yi) / accu_steps, cache)
+            if step % accu_steps == 0:
+                optimizer.step()
+                optimizer.zero_grad()
         yield a
 
         l = loss(a, y)
@@ -106,7 +108,7 @@ class Dense:
 
     def reset(self):
         for p in self.parameters():
-            p[0] = np.random.standard_normal(p[0].shape) * np.sqrt(1./p[0].shape[1])
+            p[0] = np.random.randn(*p[0].shape) * np.sqrt(1./p[0].shape[1])
             p[1] = 0
 
 
@@ -120,8 +122,8 @@ class Dense:
         dz = da * self.g_grad(a)
         da = self.w.T @ dz
 
-        self.dw[:] = dz @ a_prev.T
-        self.db[:] = np.sum(dz, axis=1, keepdims=True)
+        self.dw += dz @ a_prev.T
+        self.db += np.sum(dz, axis=1, keepdims=True)
         return da
 
 
@@ -137,6 +139,11 @@ class SGD:
         self.nesterov = nesterov
 
         self.reset()
+
+
+    def zero_grad(self):
+        for p in self.parameters:
+            p[1] = 0
 
 
     def step(self):
