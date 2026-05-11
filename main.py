@@ -3,13 +3,10 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import nn
 
-lr = 0.01
 num = 4_000
 epochs = 1_000
 batch_size = 20
 accu_steps = 2
-momentum = 0.9
-nesterov = True
 
 
 def get_data():
@@ -23,7 +20,7 @@ def get_paraboloid_data(r):
     return X, Y, X**2 + Y**2
 
 
-def inc(obj, stop, n=20):
+def inc(obj, stop, n=40):
     step = (stop - obj) / n
 
     for i in range(n):
@@ -74,7 +71,8 @@ layers = [ nn.Dense(2, 64)
          , nn.Dense(64, 1, activation='linear')
          ]
 
-opt = nn.SGD(nn.parameters(layers), lr, momentum, nesterov)
+# opt = nn.SGD(nn.parameters(layers), nesterov=True)
+opt = nn.Adam(nn.parameters(layers), lr=0.0005)
 
-ani = animation.FuncAnimation(fig, func, frames, init_func, cache_frame_data=False, interval=50, blit=True)
+ani = animation.FuncAnimation(fig, func, frames, init_func, cache_frame_data=False, interval=25, blit=True)
 plt.show()

@@ -155,3 +155,34 @@ class SGD:
 
     def reset(self):
         self.v = [np.zeros_like(p[0]) for p in self.parameters]
+
+
+class Adam:
+    def __init__(self, parameters, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8):
+        self.parameters = parameters
+        self.lr = lr
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
+
+        self.reset()
+
+
+    def zero_grad(self):
+        for p in self.parameters:
+            p[1] = 0
+
+
+    def step(self):
+        self.t += 1
+        lr_t = self.lr * np.sqrt(1 - self.beta2**self.t) / (1 - self.beta1**self.t)
+        for i, (p, g) in enumerate(self.parameters):
+            self.m[i] = self.beta1 * self.m[i] + (1 - self.beta1) * g
+            self.v[i] = self.beta2 * self.v[i] + (1 - self.beta2) * (g**2)
+            p -= lr_t * self.m[i] / (np.sqrt(self.v[i]) + self.eps)
+
+
+    def reset(self):
+        self.t = 0
+        self.m = [np.zeros_like(p[0]) for p in self.parameters]
+        self.v = [np.zeros_like(p[0]) for p in self.parameters]
